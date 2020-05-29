@@ -244,6 +244,8 @@ impl WireguardMonitor {
             ));
         }
 
+        log::info!("WIREGUARD ROUTES: {:?}", routes);
+
         routes
     }
 
