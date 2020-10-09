@@ -32,7 +32,7 @@ Line wrap the file at 100 chars.                                              Th
 - Use the API to fetch API IP addresses instead of DNS.
 
 #### Android
-- Removed the Quit button.
+- Remove the Quit button.
 - Add button to remove account and WireGuard key from history in the login screen.
 
 ### Fixed
