@@ -68,7 +68,7 @@ interface IProps {
   setOpenVpnRelayProtocolAndPort: (protocol?: RelayProtocol, port?: number) => void;
   setWireguardRelayPort: (port?: number) => void;
   onViewWireguardKeys: () => void;
-  onViewLinuxSplitTunneling: () => void;
+  onViewSplitTunneling: () => void;
   onClose: () => void;
 }
 
@@ -403,8 +403,8 @@ export default class AdvancedSettings extends React.Component<IProps, IState> {
                     <Cell.Icon height={12} width={7} source="icon-chevron" />
                   </Cell.CellButton>
 
-                  {process.platform === 'linux' && (
-                    <Cell.CellButton onClick={this.props.onViewLinuxSplitTunneling}>
+                  {(process.platform === 'linux' || process.platform === 'win32') && (
+                    <Cell.CellButton onClick={this.props.onViewSplitTunneling}>
                       <Cell.Label>
                         {messages.pgettext('advanced-settings-view', 'Split tunneling')}
                       </Cell.Label>
