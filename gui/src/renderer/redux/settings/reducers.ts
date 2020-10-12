@@ -134,6 +134,7 @@ export interface ISettingsReduxState {
     mtu?: number;
   };
   wireguardKeyState: WgKeyState;
+  enableExclusions: boolean;
 }
 
 const initialState: ISettingsReduxState = {
@@ -173,6 +174,7 @@ const initialState: ISettingsReduxState = {
   wireguardKeyState: {
     type: 'key-not-set',
   },
+  enableExclusions: false,
 };
 
 export default function (
@@ -298,6 +300,12 @@ export default function (
           type: 'being-replaced',
           oldKey: resetWireguardKeyErrors(action.oldKey),
         },
+      };
+
+    case 'SPLIT_TUNNELING_ENABLE_EXCLUSIONS':
+      return {
+        ...state,
+        enableExclusions: action.enabled,
       };
 
     default:
