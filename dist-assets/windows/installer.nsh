@@ -292,6 +292,63 @@
 !define InstallWintun '!insertmacro "InstallWintun"'
 
 #
+# InstallSplitTunnelDriver
+#
+# Install split tunnel driver
+#
+# Returns: 0 in $R0 on success, otherwise an error message in $R0
+#
+!macro InstallSplitTunnelDriver
+
+	log::Log "InstallSplitTunnelDriver()"
+
+	Push $0
+	Push $1
+
+	#
+	# Silently approve the certificate before installing the driver
+	#
+	${IfNot} ${AtLeastWin10}
+		log::Log "Adding driver certificate to the certificate store"
+
+		nsExec::ExecToStack '"$SYSDIR\certutil.exe" -f -addstore TrustedPublisher "$TEMP\mullvad-split-tunnel\driver.cer"'
+		Pop $0
+		Pop $1
+
+		${If} $0 != 0
+			StrCpy $R0 "Failed to add trusted publisher certificate: error $0"
+			log::LogWithDetails $R0 $1
+		${EndIf}
+	${EndIf}
+
+	log::Log "Installing driver"
+	nsExec::ExecToStack '"$TEMP\mullvad-split-tunnel\driverlogic.exe" install "$TEMP\mullvad-split-tunnel\mullvad-split-tunnel.inf"'
+
+	Pop $0
+	Pop $1
+
+	${If} $0 != ${DL_GENERAL_SUCCESS}
+		IntFmt $0 "0x%X" $0
+		StrCpy $R0 "Failed to install driver: error $0"
+		log::LogWithDetails $R0 $1
+		Goto InstallSplitTunnelDriver_return
+	${EndIf}
+
+	log::Log "InstallSplitTunnelDriver() completed successfully"
+
+	Push 0
+	Pop $R0
+
+	InstallSplitTunnelDriver_return:
+
+	Pop $1
+	Pop $0
+
+!macroend
+
+!define InstallSplitTunnelDriver '!insertmacro "InstallSplitTunnelDriver"'
+
+#
 # InstallService
 #
 # Register the service with Windows and start it
