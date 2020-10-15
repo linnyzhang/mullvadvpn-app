@@ -504,17 +504,17 @@ std::set<NetworkAdapter> GetNetworkAdapters(const std::optional<std::wstring> ha
 	return adapters;
 }
 
-void CreateTapDevice()
+void CreateDevice(const GUID &classGuid, const std::wstring &deviceName, const std::wstring &deviceHardwareId)
 {
-	GUID classGuid = GUID_DEVCLASS_NET;
-
 	const auto deviceInfoSet = SetupDiCreateDeviceInfoList(&classGuid, 0);
+
 	if (INVALID_HANDLE_VALUE == deviceInfoSet)
 	{
 		THROW_SETUPAPI_ERROR(GetLastError(), "SetupDiCreateDeviceInfoList");
 	}
 
 	common::memory::ScopeDestructor scopeDestructor;
+
 	scopeDestructor += [&deviceInfoSet]()
 	{
 		SetupDiDestroyDeviceInfoList(deviceInfoSet);
@@ -525,7 +525,7 @@ void CreateTapDevice()
 
 	auto status = SetupDiCreateDeviceInfoW(
 		deviceInfoSet,
-		L"NET",
+		deviceName.c_str(),
 		&classGuid,
 		nullptr,
 		0,
@@ -542,8 +542,8 @@ void CreateTapDevice()
 		deviceInfoSet,
 		&devInfoData,
 		SPDRP_HARDWAREID,
-		reinterpret_cast<const BYTE *>(TAP_HARDWARE_ID),
-		sizeof(TAP_HARDWARE_ID) - sizeof(L'\0')
+		reinterpret_cast<const BYTE *>(deviceHardwareId.c_str()),
+		static_cast<DWORD>(deviceHardwareId.size() * sizeof(wchar_t))
 	);
 
 	if (FALSE == status)
@@ -565,7 +565,7 @@ void CreateTapDevice()
 		THROW_SETUPAPI_ERROR(GetLastError(), "SetupDiCallClassInstaller");
 	}
 
-	Log(L"Created new TAP adapter successfully");
+	Log(L"Created new device successfully");
 }
 
 void UpdateTapDriver(const std::wstring &infPath)
@@ -837,7 +837,7 @@ int wmain(int argc, const wchar_t * argv[], const wchar_t * [])
 				goto INVALID_ARGUMENTS;
 			}
 
-			CreateTapDevice();
+			CreateDevice(GUID_DEVCLASS_NET, L"NET", TAP_HARDWARE_ID);
 			UpdateTapDriver(argv[2]);
 			RenameAdapterToMullvad(FindBrandedTap());
 		}
