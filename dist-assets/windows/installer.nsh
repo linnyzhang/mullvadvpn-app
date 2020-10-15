@@ -784,6 +784,14 @@
 		Goto customInstall_abort_installation
 	${EndIf}
 
+	${ExtractSplitTunnelDriver}
+	${InstallSplitTunnelDriver}
+
+	${If} $R0 != 0
+		MessageBox MB_OK "$R0"
+		Goto customInstall_abort_installation
+	${EndIf}
+
 	${InstallService}
 
 	${If} $R0 != 0
