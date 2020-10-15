@@ -179,7 +179,7 @@
 	# Silently approve the certificate before installing the driver
 	#
 	${IfNot} ${AtLeastWin10}
-		log::Log "Adding OpenVPN certificate to the certificate store"
+		log::Log "Adding driver certificate to certificate store"
 
 		nsExec::ExecToStack '"$SYSDIR\certutil.exe" -f -addstore TrustedPublisher "$TEMP\tap-driver\driver.cer"'
 		Pop $0
@@ -309,7 +309,7 @@
 	# Silently approve the certificate before installing the driver
 	#
 	${IfNot} ${AtLeastWin10}
-		log::Log "Adding driver certificate to the certificate store"
+		log::Log "Adding driver certificate to certificate store"
 
 		nsExec::ExecToStack '"$SYSDIR\certutil.exe" -f -addstore TrustedPublisher "$TEMP\mullvad-split-tunnel\driver.cer"'
 		Pop $0
