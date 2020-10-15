@@ -82,6 +82,22 @@
 !define ExtractWintun '!insertmacro "ExtractWintun"'
 
 #
+# ExtractSplitTunnelDriver
+#
+# Extract split tunnel driver and associated files into $TEMP\mullvad-split-tunnel
+#
+!macro ExtractSplitTunnelDriver
+
+	SetOutPath "$TEMP\mullvad-split-tunnel"
+
+	File "${BUILD_RESOURCES_DIR}\binaries\x86_64-pc-windows-msvc\split-tunnel\*"
+	File "${BUILD_RESOURCES_DIR}\..\windows\driverlogic\bin\x64-Release\driverlogic.exe"
+
+!macroend
+
+!define ExtractSplitTunnelDriver '!insertmacro "ExtractSplitTunnelDriver"'
+
+#
 # RemoveBrandedTap
 #
 # Try to remove the Mullvad TAP adapter driver
