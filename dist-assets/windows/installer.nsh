@@ -106,7 +106,7 @@
 	Push $0
 	Push $1
 
-	nsExec::ExecToStack '"$TEMP\tap-driver\driverlogic.exe" remove ${TAP_HARDWARE_ID}'
+	nsExec::ExecToStack '"$TEMP\tap-driver\driverlogic.exe" remove-tap ${TAP_HARDWARE_ID}'
 	Pop $0
 	Pop $1
 
@@ -192,7 +192,7 @@
 	${EndIf}
 
 	log::Log "Creating new virtual adapter"
-	nsExec::ExecToStack '"$TEMP\tap-driver\driverlogic.exe" install "$TEMP\tap-driver\OemVista.inf"'
+	nsExec::ExecToStack '"$TEMP\tap-driver\driverlogic.exe" install-tap "$TEMP\tap-driver\OemVista.inf"'
 
 	Pop $0
 	Pop $1
@@ -322,7 +322,7 @@
 	${EndIf}
 
 	log::Log "Installing driver"
-	nsExec::ExecToStack '"$TEMP\mullvad-split-tunnel\driverlogic.exe" install "$TEMP\mullvad-split-tunnel\mullvad-split-tunnel.inf"'
+	nsExec::ExecToStack '"$TEMP\mullvad-split-tunnel\driverlogic.exe" install-split-tunnel "$TEMP\mullvad-split-tunnel\mullvad-split-tunnel.inf"'
 
 	Pop $0
 	Pop $1
