@@ -239,8 +239,9 @@ export function WindowsSplitTunnelingSettings(props: IPlatformSplitTunnelingSett
     getWindowsSplitTunnelingApplications,
     setSplitTunnelingState,
   } = useAppContext();
-  const splitTunnelingEnabled = useSelector(
-    (state: IReduxState) => state.settings.enableExclusions,
+  const splitTunnelingEnabled = useSelector((state: IReduxState) => state.settings.splitTunneling);
+  const splitTunnelingApplications = useSelector(
+    (state: IReduxState) => state.settings.splitTunnelingApplications,
   );
 
   const [applications, setApplications] = useState<ISplitTunnelingApplication[]>();
@@ -275,7 +276,7 @@ export function WindowsSplitTunnelingSettings(props: IPlatformSplitTunnelingSett
             {messages.pgettext('split-tunneling-view', 'Excluded applications')}
           </Cell.SectionTitle>
           <ApplicationList
-            applications={applications?.slice(0, 3)}
+            applications={splitTunnelingApplications}
             onRemove={removeSplitTunnelingApplication}
             rowComponent={ApplicationRow}
           />
@@ -286,7 +287,7 @@ export function WindowsSplitTunnelingSettings(props: IPlatformSplitTunnelingSett
             {messages.pgettext('split-tunneling-view', 'Add applications')}
           </Cell.SectionTitle>
           <ApplicationList
-            applications={applications?.slice(0, 10)}
+            applications={applications}
             onSelect={addSplitTunnelingApplication}
             rowComponent={ApplicationRow}
           />
