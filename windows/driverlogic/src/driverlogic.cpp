@@ -27,7 +27,14 @@ namespace
 
 constexpr wchar_t DEPRECATED_TAP_HARDWARE_ID[] = L"tap0901";
 constexpr wchar_t TAP_HARDWARE_ID[] = L"tapmullvad0901";
+constexpr wchar_t SPLIT_TUNNEL_HARDWARE_ID[] = L"mullvad-split-tunnel";
 constexpr wchar_t TAP_BASE_ALIAS[] = L"Mullvad";
+
+DEFINE_GUID
+(
+	GUID_DEVCLASS_WFPCALLOUTS,
+	0x57465043L, 0x616C, 0x6C6F, 0x75, 0x74, 0x5F, 0x63, 0x6C, 0x61, 0x73, 0x73
+);
 
 constexpr std::chrono::milliseconds REGISTRY_GET_TIMEOUT_MS{ 10000 };
 
@@ -836,7 +843,7 @@ int wmain(int argc, const wchar_t * argv[], const wchar_t * [])
 
 	try
 	{
-		if (0 == _wcsicmp(argv[1], L"install"))
+		if (0 == _wcsicmp(argv[1], L"install-tap"))
 		{
 			if (3 != argc)
 			{
@@ -847,7 +854,17 @@ int wmain(int argc, const wchar_t * argv[], const wchar_t * [])
 			UpdateDriver(TAP_HARDWARE_ID, argv[2]);
 			RenameAdapterToMullvad(FindBrandedTap());
 		}
-		else if (0 == _wcsicmp(argv[1], L"update"))
+		else if (0 == _wcsicmp(argv[1], L"install-split-tunnel"))
+		{
+			if (3 != argc)
+			{
+				goto INVALID_ARGUMENTS;
+			}
+
+			CreateDevice(GUID_DEVCLASS_WFPCALLOUTS, L"WFPCALLOUTS", SPLIT_TUNNEL_HARDWARE_ID);
+			UpdateDriver(SPLIT_TUNNEL_HARDWARE_ID, argv[2]);
+		}
+		else if (0 == _wcsicmp(argv[1], L"update-tap"))
 		{
 			if (3 != argc)
 			{
@@ -856,7 +873,7 @@ int wmain(int argc, const wchar_t * argv[], const wchar_t * [])
 
 			UpdateDriver(TAP_HARDWARE_ID, argv[2]);
 		}
-		else if (0 == _wcsicmp(argv[1], L"remove"))
+		else if (0 == _wcsicmp(argv[1], L"remove-tap"))
 		{
 			if (3 != argc)
 			{
