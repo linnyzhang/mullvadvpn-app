@@ -9,6 +9,7 @@ import {
   TunnelProtocol,
 } from '../../../shared/daemon-rpc-types';
 import { IGuiSettingsState } from '../../../shared/gui-settings-state';
+import { ISplitTunnelingApplication } from '../../../shared/split-tunneling-application';
 import { ReduxAction } from '../store';
 
 export type RelaySettingsRedux =
@@ -134,6 +135,8 @@ export interface ISettingsReduxState {
     mtu?: number;
   };
   wireguardKeyState: WgKeyState;
+  splitTunneling: boolean;
+  splitTunnelingApplications: ISplitTunnelingApplication[];
 }
 
 const initialState: ISettingsReduxState = {
@@ -173,6 +176,8 @@ const initialState: ISettingsReduxState = {
   wireguardKeyState: {
     type: 'key-not-set',
   },
+  splitTunneling: false,
+  splitTunnelingApplications: [],
 };
 
 export default function (
@@ -298,6 +303,18 @@ export default function (
           type: 'being-replaced',
           oldKey: resetWireguardKeyErrors(action.oldKey),
         },
+      };
+
+    case 'SPLIT_TUNNELING_ENABLE_EXCLUSIONS':
+      return {
+        ...state,
+        splitTunneling: action.enabled,
+      };
+
+    case 'SPLIT_TUNNELING_APPLICATIONS':
+      return {
+        ...state,
+        splitTunnelingApplications: action.applications,
       };
 
     default:

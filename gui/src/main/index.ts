@@ -55,8 +55,9 @@ import ReconnectionBackoff from './reconnection-backoff';
 import TrayIconController, { TrayIconType } from './tray-icon-controller';
 import WindowController from './window-controller';
 
-// Only import when running app on Linux.
+// Only import split tunneling library on correct OS.
 const linuxSplitTunneling = process.platform === 'linux' && require('./linux-split-tunneling');
+const windowsSplitTunneling = process.platform === 'win32' && require('./windows-split-tunneling');
 
 const DAEMON_RPC_PATH =
   process.platform === 'win32' ? 'unix:////./pipe/Mullvad VPN' : 'unix:///var/run/mullvad-vpn';
@@ -107,6 +108,8 @@ class ApplicationMain {
     autoConnect: false,
     blockWhenDisconnected: false,
     showBetaReleases: false,
+    splitTunnel: false,
+    splitTunnelAppsList: [],
     relaySettings: {
       normal: {
         location: 'any',
@@ -448,7 +451,7 @@ class ApplicationMain {
 
     // fetch settings
     try {
-      this.setSettings(await this.daemonRpc.getSettings());
+      await this.setSettings(await this.daemonRpc.getSettings());
     } catch (error) {
       log.error(`Failed to fetch settings: ${error.message}`);
 
@@ -560,7 +563,7 @@ class ApplicationMain {
         if ('tunnelState' in daemonEvent) {
           this.setTunnelState(daemonEvent.tunnelState);
         } else if ('settings' in daemonEvent) {
-          this.setSettings(daemonEvent.settings);
+          consumePromise(this.setSettings(daemonEvent.settings));
         } else if ('relayList' in daemonEvent) {
           this.setRelays(
             daemonEvent.relayList,
@@ -644,7 +647,7 @@ class ApplicationMain {
     }
   }
 
-  private setSettings(newSettings: ISettings) {
+  private async setSettings(newSettings: ISettings) {
     const oldSettings = this.settings;
     this.settings = newSettings;
 
@@ -664,6 +667,13 @@ class ApplicationMain {
 
     if (this.windowController) {
       IpcMainEventChannel.settings.notify(this.windowController.webContents, newSettings);
+
+      if (windowsSplitTunneling) {
+        IpcMainEventChannel.windowsSplitTunneling.notify(
+          this.windowController.webContents,
+          await windowsSplitTunneling.getApplications(newSettings.splitTunnelAppsList),
+        );
+      }
     }
 
     // since settings can have the relay constraints changed, the relay
@@ -1020,19 +1030,56 @@ class ApplicationMain {
     });
     IpcMainEventChannel.wireguardKeys.handleVerifyKey(() => this.daemonRpc.verifyWireguardKey());
 
-    IpcMainEventChannel.splitTunneling.handleGetApplications(() => {
+    IpcMainEventChannel.linuxSplitTunneling.handleGetApplications(() => {
       if (linuxSplitTunneling) {
         return linuxSplitTunneling.getApplications(this.locale);
       } else {
-        throw Error('linuxSplitTunneling called without being imported');
+        throw Error('linuxSplitTunneling.getApplications function called without being imported');
       }
     });
-    IpcMainEventChannel.splitTunneling.handleLaunchApplication((application) => {
+    IpcMainEventChannel.windowsSplitTunneling.handleGetApplications(() => {
+      if (windowsSplitTunneling) {
+        return windowsSplitTunneling.getApplications();
+      } else {
+        throw Error('windowsSplitTunneling.getApplications function called without being imported');
+      }
+    });
+    IpcMainEventChannel.linuxSplitTunneling.handleLaunchApplication((application) => {
       if (linuxSplitTunneling) {
         linuxSplitTunneling.launchApplication(application);
         return Promise.resolve();
       } else {
-        throw Error('linuxSplitTunneling called without being imported');
+        throw Error('linuxSplitTunneling.launchApplication function called without being imported');
+      }
+    });
+
+    IpcMainEventChannel.windowsSplitTunneling.handleSetState((enabled) => {
+      if (windowsSplitTunneling) {
+        return this.daemonRpc.setSplitTunnelingState(enabled);
+      } else {
+        throw Error('windowsSplitTunneling.setState function called without being imported');
+      }
+    });
+    IpcMainEventChannel.windowsSplitTunneling.handleAddApplication((application) => {
+      if (windowsSplitTunneling) {
+        return this.daemonRpc.addSplitTunnelingApplication(
+          typeof application === 'string' ? application : application.path,
+        );
+      } else {
+        throw Error(
+          'windowsSplitTunneling.handleAddApplication function called without being imported',
+        );
+      }
+    });
+    IpcMainEventChannel.windowsSplitTunneling.handleRemoveApplication((application) => {
+      if (windowsSplitTunneling) {
+        return this.daemonRpc.removeSplitTunnelingApplication(
+          typeof application === 'string' ? application : application.path,
+        );
+      } else {
+        throw Error(
+          'windowsSplitTunneling.handleRemoveApplication function called without being imported',
+        );
       }
     });
 

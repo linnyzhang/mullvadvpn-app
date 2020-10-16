@@ -302,6 +302,8 @@ export interface ISettings {
   tunnelOptions: ITunnelOptions;
   bridgeSettings: BridgeSettings;
   bridgeState: BridgeState;
+  splitTunnel: boolean;
+  splitTunnelAppsList: string[];
 }
 
 export type KeygenEvent = INewWireguardKey | KeygenFailure;

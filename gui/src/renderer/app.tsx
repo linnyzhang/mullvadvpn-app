@@ -26,7 +26,10 @@ import { ICurrentAppVersionInfo } from '../main';
 import { loadTranslations, messages, relayLocations } from '../shared/gettext';
 import { IGuiSettingsState, SYSTEM_PREFERRED_LOCALE_KEY } from '../shared/gui-settings-state';
 import { IpcRendererEventChannel, IRelayListPair } from '../shared/ipc-event-channel';
-import ISplitTunnelingApplication from '../shared/linux-split-tunneling-application';
+import {
+  ISplitTunnelingApplication,
+  ILinuxSplitTunnelingApplication,
+} from '../shared/split-tunneling-application';
 import { getRendererLogFile, setupLogging } from '../shared/logging';
 import consumePromise from '../shared/promise';
 
@@ -187,6 +190,12 @@ export default class AppRenderer {
     IpcRendererEventChannel.wireguardKeys.listenKeygenEvents((event: KeygenEvent) => {
       this.reduxActions.settings.setWireguardKeygenEvent(event);
     });
+
+    IpcRendererEventChannel.windowsSplitTunneling.listen(
+      (applications: ISplitTunnelingApplication[]) => {
+        this.reduxActions.settings.setSplitTunnelingApplications(applications);
+      },
+    );
 
     IpcRendererEventChannel.windowFocus.listen((focus: boolean) => {
       this.reduxActions.userInterface.setWindowFocused(focus);
@@ -418,12 +427,28 @@ export default class AppRenderer {
     actions.settings.setWireguardKeygenEvent(keygenEvent);
   }
 
-  public getSplitTunnelingApplications() {
-    return IpcRendererEventChannel.splitTunneling.getApplications();
+  public getLinuxSplitTunnelingApplications() {
+    return IpcRendererEventChannel.linuxSplitTunneling.getApplications();
   }
 
-  public launchExcludedApplication(application: ISplitTunnelingApplication | string) {
-    consumePromise(IpcRendererEventChannel.splitTunneling.launchApplication(application));
+  public getWindowsSplitTunnelingApplications() {
+    return IpcRendererEventChannel.windowsSplitTunneling.getApplications();
+  }
+
+  public launchExcludedApplication(application: ILinuxSplitTunnelingApplication | string) {
+    consumePromise(IpcRendererEventChannel.linuxSplitTunneling.launchApplication(application));
+  }
+
+  public setSplitTunnelingState(enabled: boolean) {
+    consumePromise(IpcRendererEventChannel.windowsSplitTunneling.setState(enabled));
+  }
+
+  public addSplitTunnelingApplication(application: ISplitTunnelingApplication | string) {
+    consumePromise(IpcRendererEventChannel.windowsSplitTunneling.addApplication(application));
+  }
+
+  public removeSplitTunnelingApplication(application: ISplitTunnelingApplication | string) {
+    consumePromise(IpcRendererEventChannel.windowsSplitTunneling.addApplication(application));
   }
 
   public getPreferredLocaleList(): IPreferredLocaleDescriptor[] {

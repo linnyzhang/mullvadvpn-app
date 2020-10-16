@@ -612,6 +612,18 @@ export class DaemonRpc {
     const response = await this.callEmpty<grpcTypes.AppVersionInfo>(this.client.getVersionInfo);
     return response.toObject();
   }
+
+  public async addSplitTunnelingApplication(path: string): Promise<void> {
+    await this.callString(this.client.addSplitTunnelApp, path);
+  }
+
+  public async removeSplitTunnelingApplication(path: string): Promise<void> {
+    await this.callString(this.client.removeSplitTunnelApp, path);
+  }
+
+  public async setSplitTunnelingState(enabled: boolean): Promise<void> {
+    await this.callBool(this.client.setSplitTunnelState, enabled);
+  }
 }
 
 function liftConstraint<T>(constraint: Constraint<T> | undefined): T | undefined {
