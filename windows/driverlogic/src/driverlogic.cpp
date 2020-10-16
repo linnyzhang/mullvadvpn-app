@@ -27,7 +27,14 @@ namespace
 
 constexpr wchar_t DEPRECATED_TAP_HARDWARE_ID[] = L"tap0901";
 constexpr wchar_t TAP_HARDWARE_ID[] = L"tapmullvad0901";
+constexpr wchar_t SPLIT_TUNNEL_HARDWARE_ID[] = L"Root\\mullvad-split-tunnel";
 constexpr wchar_t TAP_BASE_ALIAS[] = L"Mullvad";
+
+DEFINE_GUID
+(
+	GUID_DEVCLASS_WFPCALLOUTS,
+	0x57465043L, 0x616C, 0x6C6F, 0x75, 0x74, 0x5F, 0x63, 0x6C, 0x61, 0x73, 0x73
+);
 
 constexpr std::chrono::milliseconds REGISTRY_GET_TIMEOUT_MS{ 10000 };
 
@@ -504,17 +511,17 @@ std::set<NetworkAdapter> GetNetworkAdapters(const std::optional<std::wstring> ha
 	return adapters;
 }
 
-void CreateTapDevice()
+void CreateDevice(const GUID &classGuid, const std::wstring &deviceName, const std::wstring &deviceHardwareId)
 {
-	GUID classGuid = GUID_DEVCLASS_NET;
-
 	const auto deviceInfoSet = SetupDiCreateDeviceInfoList(&classGuid, 0);
+
 	if (INVALID_HANDLE_VALUE == deviceInfoSet)
 	{
 		THROW_SETUPAPI_ERROR(GetLastError(), "SetupDiCreateDeviceInfoList");
 	}
 
 	common::memory::ScopeDestructor scopeDestructor;
+
 	scopeDestructor += [&deviceInfoSet]()
 	{
 		SetupDiDestroyDeviceInfoList(deviceInfoSet);
@@ -525,7 +532,7 @@ void CreateTapDevice()
 
 	auto status = SetupDiCreateDeviceInfoW(
 		deviceInfoSet,
-		L"NET",
+		deviceName.c_str(),
 		&classGuid,
 		nullptr,
 		0,
@@ -542,8 +549,8 @@ void CreateTapDevice()
 		deviceInfoSet,
 		&devInfoData,
 		SPDRP_HARDWAREID,
-		reinterpret_cast<const BYTE *>(TAP_HARDWARE_ID),
-		sizeof(TAP_HARDWARE_ID) - sizeof(L'\0')
+		reinterpret_cast<const BYTE *>(deviceHardwareId.c_str()),
+		static_cast<DWORD>(deviceHardwareId.size() * sizeof(wchar_t))
 	);
 
 	if (FALSE == status)
@@ -565,78 +572,84 @@ void CreateTapDevice()
 		THROW_SETUPAPI_ERROR(GetLastError(), "SetupDiCallClassInstaller");
 	}
 
-	Log(L"Created new TAP adapter successfully");
+	Log(L"Created new device successfully");
 }
 
-void UpdateTapDriver(const std::wstring &infPath)
+void UpdateDriver(const std::wstring &deviceHardwareId, const std::wstring &infPath)
 {
 	Log(L"Attempting to install new driver");
 
-	DWORD installFlags = 0;
 	BOOL rebootRequired = FALSE;
-
-ATTEMPT_UPDATE:
 
 	auto result = UpdateDriverForPlugAndPlayDevicesW(
 		nullptr,
-		TAP_HARDWARE_ID,
+		deviceHardwareId.c_str(),
 		infPath.c_str(),
-		installFlags,
+		0,
 		&rebootRequired
 	);
 
-	if (FALSE == result)
+	if (FALSE == result && ERROR_NO_MORE_ITEMS == GetLastError())
 	{
-		const auto lastError = GetLastError();
+		Log(L"Driver update failed. Attempting forced install.");
 
-		if (ERROR_NO_MORE_ITEMS == lastError
-			&& (installFlags ^ INSTALLFLAG_FORCE))
-		{
-			Log(L"Driver update failed. Attempting forced install.");
-			installFlags |= INSTALLFLAG_FORCE;
+		result = UpdateDriverForPlugAndPlayDevicesW(
+				nullptr,
+				deviceHardwareId.c_str(),
+				infPath.c_str(),
+				INSTALLFLAG_FORCE,
+				&rebootRequired
+		);
+	}
 
-			goto ATTEMPT_UPDATE;
-		}
+	if (FALSE != result)
+	{
+		std::wstringstream ss;
 
-		if (ERROR_DEVICE_INSTALLER_NOT_READY == lastError)
-		{
-			bool deviceInstallDisabled = false;
+		ss << L"Driver update complete. Reboot required: "
+			<< rebootRequired;
 
-			try
-			{
-				const auto key = common::registry::Registry::OpenKey(
-					HKEY_LOCAL_MACHINE,
-					L"SYSTEM\\CurrentControlSet\\Services\\DeviceInstall\\Parameters"
-				);
-				deviceInstallDisabled = (0 != key->readUint32(L"DeviceInstallDisabled"));
-			}
-			catch (...)
-			{
-			}
+		Log(ss.str());
 
-			if (deviceInstallDisabled)
-			{
-				throw common::error::WindowsException(
-					"Device installs must be enabled to continue. "
-					"Enable them in the Local Group Policy editor, or "
-					"update the registry value DeviceInstallDisabled in "
-					"[HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\DeviceInstall\\Parameters]",
-					lastError
-				);
-			}
-		}
-
-		THROW_SETUPAPI_ERROR(lastError, "UpdateDriverForPlugAndPlayDevicesW");
+		return;
 	}
 
 	//
-	// Driver successfully installed or updated
+	// Driver update failed.
 	//
 
-	std::wstringstream ss;
-	ss << L"TAP driver update complete. Reboot required: "
-		<< rebootRequired;
-	Log(ss.str());
+	const auto lastError = GetLastError();
+
+	if (ERROR_DEVICE_INSTALLER_NOT_READY == lastError)
+	{
+		bool deviceInstallDisabled = false;
+
+		try
+		{
+			const auto key = common::registry::Registry::OpenKey(
+				HKEY_LOCAL_MACHINE,
+				L"SYSTEM\\CurrentControlSet\\Services\\DeviceInstall\\Parameters"
+			);
+
+			deviceInstallDisabled = (0 != key->readUint32(L"DeviceInstallDisabled"));
+		}
+		catch (...)
+		{
+		}
+
+		if (deviceInstallDisabled)
+		{
+			throw common::error::WindowsException(
+				"Device installs must be enabled to continue. "
+				"Enable them in the Local Group Policy editor, or "
+				"update the registry value DeviceInstallDisabled in "
+				"[HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\DeviceInstall\\Parameters]",
+				lastError
+			);
+		}
+	}
+
+	THROW_SETUPAPI_ERROR(lastError, "UpdateDriverForPlugAndPlayDevicesW");
 }
 
 //
@@ -830,27 +843,37 @@ int wmain(int argc, const wchar_t * argv[], const wchar_t * [])
 
 	try
 	{
-		if (0 == _wcsicmp(argv[1], L"install"))
+		if (0 == _wcsicmp(argv[1], L"install-tap"))
 		{
 			if (3 != argc)
 			{
 				goto INVALID_ARGUMENTS;
 			}
 
-			CreateTapDevice();
-			UpdateTapDriver(argv[2]);
+			CreateDevice(GUID_DEVCLASS_NET, L"NET", TAP_HARDWARE_ID);
+			UpdateDriver(TAP_HARDWARE_ID, argv[2]);
 			RenameAdapterToMullvad(FindBrandedTap());
 		}
-		else if (0 == _wcsicmp(argv[1], L"update"))
+		else if (0 == _wcsicmp(argv[1], L"install-split-tunnel"))
 		{
 			if (3 != argc)
 			{
 				goto INVALID_ARGUMENTS;
 			}
 
-			UpdateTapDriver(argv[2]);
+			CreateDevice(GUID_DEVCLASS_WFPCALLOUTS, L"WFPCALLOUTS", SPLIT_TUNNEL_HARDWARE_ID);
+			UpdateDriver(SPLIT_TUNNEL_HARDWARE_ID, argv[2]);
 		}
-		else if (0 == _wcsicmp(argv[1], L"remove"))
+		else if (0 == _wcsicmp(argv[1], L"update-tap"))
+		{
+			if (3 != argc)
+			{
+				goto INVALID_ARGUMENTS;
+			}
+
+			UpdateDriver(TAP_HARDWARE_ID, argv[2]);
+		}
+		else if (0 == _wcsicmp(argv[1], L"remove-tap"))
 		{
 			if (3 != argc)
 			{

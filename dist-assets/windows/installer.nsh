@@ -82,6 +82,22 @@
 !define ExtractWintun '!insertmacro "ExtractWintun"'
 
 #
+# ExtractSplitTunnelDriver
+#
+# Extract split tunnel driver and associated files into $TEMP\mullvad-split-tunnel
+#
+!macro ExtractSplitTunnelDriver
+
+	SetOutPath "$TEMP\mullvad-split-tunnel"
+
+	File "${BUILD_RESOURCES_DIR}\binaries\x86_64-pc-windows-msvc\split-tunnel\*"
+	File "${BUILD_RESOURCES_DIR}\..\windows\driverlogic\bin\x64-Release\driverlogic.exe"
+
+!macroend
+
+!define ExtractSplitTunnelDriver '!insertmacro "ExtractSplitTunnelDriver"'
+
+#
 # RemoveBrandedTap
 #
 # Try to remove the Mullvad TAP adapter driver
@@ -90,7 +106,7 @@
 	Push $0
 	Push $1
 
-	nsExec::ExecToStack '"$TEMP\tap-driver\driverlogic.exe" remove ${TAP_HARDWARE_ID}'
+	nsExec::ExecToStack '"$TEMP\tap-driver\driverlogic.exe" remove-tap ${TAP_HARDWARE_ID}'
 	Pop $0
 	Pop $1
 
@@ -163,7 +179,7 @@
 	# Silently approve the certificate before installing the driver
 	#
 	${IfNot} ${AtLeastWin10}
-		log::Log "Adding OpenVPN certificate to the certificate store"
+		log::Log "Adding driver certificate to certificate store"
 
 		nsExec::ExecToStack '"$SYSDIR\certutil.exe" -f -addstore TrustedPublisher "$TEMP\tap-driver\driver.cer"'
 		Pop $0
@@ -176,7 +192,7 @@
 	${EndIf}
 
 	log::Log "Creating new virtual adapter"
-	nsExec::ExecToStack '"$TEMP\tap-driver\driverlogic.exe" install "$TEMP\tap-driver\OemVista.inf"'
+	nsExec::ExecToStack '"$TEMP\tap-driver\driverlogic.exe" install-tap "$TEMP\tap-driver\OemVista.inf"'
 
 	Pop $0
 	Pop $1
@@ -274,6 +290,63 @@
 !macroend
 
 !define InstallWintun '!insertmacro "InstallWintun"'
+
+#
+# InstallSplitTunnelDriver
+#
+# Install split tunnel driver
+#
+# Returns: 0 in $R0 on success, otherwise an error message in $R0
+#
+!macro InstallSplitTunnelDriver
+
+	log::Log "InstallSplitTunnelDriver()"
+
+	Push $0
+	Push $1
+
+	#
+	# Silently approve the certificate before installing the driver
+	#
+	${IfNot} ${AtLeastWin10}
+		log::Log "Adding driver certificate to certificate store"
+
+		nsExec::ExecToStack '"$SYSDIR\certutil.exe" -f -addstore TrustedPublisher "$TEMP\mullvad-split-tunnel\driver.cer"'
+		Pop $0
+		Pop $1
+
+		${If} $0 != 0
+			StrCpy $R0 "Failed to add trusted publisher certificate: error $0"
+			log::LogWithDetails $R0 $1
+		${EndIf}
+	${EndIf}
+
+	log::Log "Installing driver"
+	nsExec::ExecToStack '"$TEMP\mullvad-split-tunnel\driverlogic.exe" install-split-tunnel "$TEMP\mullvad-split-tunnel\mullvad-split-tunnel.inf"'
+
+	Pop $0
+	Pop $1
+
+	${If} $0 != ${DL_GENERAL_SUCCESS}
+		IntFmt $0 "0x%X" $0
+		StrCpy $R0 "Failed to install driver: error $0"
+		log::LogWithDetails $R0 $1
+		Goto InstallSplitTunnelDriver_return
+	${EndIf}
+
+	log::Log "InstallSplitTunnelDriver() completed successfully"
+
+	Push 0
+	Pop $R0
+
+	InstallSplitTunnelDriver_return:
+
+	Pop $1
+	Pop $0
+
+!macroend
+
+!define InstallSplitTunnelDriver '!insertmacro "InstallSplitTunnelDriver"'
 
 #
 # InstallService
@@ -705,6 +778,14 @@
 
 	${ExtractWintun}
 	${InstallWintun}
+
+	${If} $R0 != 0
+		MessageBox MB_OK "$R0"
+		Goto customInstall_abort_installation
+	${EndIf}
+
+	${ExtractSplitTunnelDriver}
+	${InstallSplitTunnelDriver}
 
 	${If} $R0 != 0
 		MessageBox MB_OK "$R0"
