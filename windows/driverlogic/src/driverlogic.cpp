@@ -27,7 +27,7 @@ namespace
 
 constexpr wchar_t DEPRECATED_TAP_HARDWARE_ID[] = L"tap0901";
 constexpr wchar_t TAP_HARDWARE_ID[] = L"tapmullvad0901";
-constexpr wchar_t SPLIT_TUNNEL_HARDWARE_ID[] = L"mullvad-split-tunnel";
+constexpr wchar_t SPLIT_TUNNEL_HARDWARE_ID[] = L"Root\\mullvad-split-tunnel";
 constexpr wchar_t TAP_BASE_ALIAS[] = L"Mullvad";
 
 DEFINE_GUID
